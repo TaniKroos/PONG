@@ -17,6 +17,7 @@ function Icon({ name, className = 'h-5 w-5' }) {
     sound: <><path d="M4 10v4h4l5 4V6L8 10H4Z" /><path d="M16 9.5a4 4 0 0 1 0 5M18.8 6.8a8 8 0 0 1 0 10.4" /></>,
     mute: <><path d="M4 10v4h4l5 4V6L8 10H4Z" /><path d="m16 10 4 4m0-4-4 4" /></>,
     spark: <path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z" />,
+    pause: <><path d="M8 5v14M16 5v14" /></>,
     arrows: <><path d="M8 5 5 8l3 3M5 8h14M16 19l3-3-3-3M19 16H5" /></>,
   };
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
@@ -30,6 +31,7 @@ function App() {
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [score, setScore] = useState([0, 0]);
   const [isLive, setIsLive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -100,7 +102,7 @@ function App() {
 
     const animate = () => {
       const game = gameRef.current;
-      if (game.running && game.referee) {
+      if (game.running && !game.paused && game.referee) {
         game.ballY += game.speedY * game.direction;
         if (game.moved) game.ballX += game.speedX;
         if ((game.ballX < 8 && game.speedX < 0) || (game.ballX > GAME_WIDTH - 8 && game.speedX > 0)) game.speedX *= -1;
@@ -158,6 +160,12 @@ function App() {
     return () => { cancelAnimationFrame(frame); canvas.removeEventListener('pointermove', movePaddle); socket.disconnect(); };
   }, []);
 
+  const togglePause = () => {
+    if (!gameRef.current.running) return;
+    gameRef.current.paused = !gameRef.current.paused;
+    setIsPaused(gameRef.current.paused);
+  };
+
   const statusStyle = isLive ? 'bg-emerald-400' : 'bg-amber-300';
 
   return (
@@ -180,12 +188,14 @@ function App() {
             <h1 className="font-display text-5xl font-bold leading-[.95] tracking-[-0.07em] text-white sm:text-6xl xl:text-7xl">The arcade<br /><span className="text-transparent [background:linear-gradient(100deg,#c4b5fd,#60a5fa)] bg-clip-text">is calling.</span></h1>
             <p className="mt-6 max-w-lg text-base leading-7 text-slate-400 sm:text-lg">A precision-built multiplayer Pong experience. Move your paddle, read your opponent, and own the rally.</p>
             <div className="mt-8 flex flex-wrap gap-3 text-sm text-slate-300"><div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] px-4 py-3"><Icon name="arrows" className="h-4 w-4 text-violet-300" /> Move your cursor to play</div><div className="rounded-xl border border-white/10 bg-white/[.035] px-4 py-3"><span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400" /> Real-time multiplayer</div></div>
+            <div className="mt-8 grid grid-cols-3 gap-3 border-t border-white/10 pt-6"><div><p className="text-2xl font-semibold tracking-tight text-white">01</p><p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Arena</p></div><div><p className="text-2xl font-semibold tracking-tight text-white">∞</p><p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Rallies</p></div><div><p className="text-2xl font-semibold tracking-tight text-white">LIVE</p><p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Matchmaking</p></div></div>
           </div>
 
           <div className="order-1 mx-auto w-full max-w-[560px] lg:order-2">
             <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#101120]/75 p-3 shadow-glow backdrop-blur-sm sm:p-4">
               <div className="mb-3 flex items-center justify-between px-2 pt-1 text-xs font-medium"><span className="flex items-center gap-2 text-slate-400"><span className={`h-2 w-2 rounded-full ${statusStyle} ${isLive ? 'animate-pulse' : ''}`} /> {status}</span><span className="text-slate-500">ROOM / AUTO-MATCH</span></div>
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#090a15]"><canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} className="block h-auto w-full touch-none" aria-label="Multiplayer Pong game" /><div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between p-4 text-xs font-semibold uppercase tracking-[0.18em]"><span className="text-amber-200">You · {score[0]}</span><span className="text-violet-200">Rival · {score[1]}</span></div></div>
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#090a15]"><canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} className="block h-auto w-full touch-none" aria-label="Multiplayer Pong game" /><div className="pointer-events-none absolute inset-x-0 top-0 flex justify-between p-4 text-[10px] font-bold uppercase tracking-[0.22em]"><span className="rounded-md bg-amber-300/10 px-2 py-1 text-amber-200">You</span><span className="rounded-md bg-violet-300/10 px-2 py-1 text-violet-200">Rival</span></div><div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between p-4 text-xs font-semibold uppercase tracking-[0.18em]"><span className="text-amber-200">Score · {score[0]}</span><span className="text-violet-200">Score · {score[1]}</span></div></div>
+              <div className="mt-3 flex items-center justify-between px-2 pb-1"><p className="text-xs text-slate-500">First to 11 wins the arena.</p><button type="button" onClick={togglePause} disabled={!isLive} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[.04] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><Icon name="pause" className="h-3.5 w-3.5" /> {isPaused ? 'Resume' : 'Pause'}</button></div>
             </div>
           </div>
         </section>
